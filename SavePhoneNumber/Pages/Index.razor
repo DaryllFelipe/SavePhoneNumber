@@ -1,0 +1,96 @@
+﻿@page "/"
+@using DataObjects
+
+<PageTitle>Add Phone</PageTitle>
+
+<div>
+    <EditForm Model="UserDataForm" OnValidSubmit=OnSubmit>
+        <DataAnnotationsValidator />
+        <div>
+            <label>Full Name</label>
+            <InputText @bind-Value=UserDataForm.FullName />
+            <span> <ValidationMessage For="() => UserDataForm.FullName" /></span>
+        </div>
+        <div>
+            <label>Phone Number</label>
+            <InputText type="number" @bind-Value=UserDataForm.PhoneNumber />
+            <span> <ValidationMessage For="() => UserDataForm.PhoneNumber" /></span>
+        </div>
+        <button type="submit">Save</button>
+    </EditForm>
+    <span>@ErrorMessage</span>
+</div>
+
+<div>
+    <p>Records</p>
+    @if(Records != null && Records.Any())
+    {
+        foreach(ContactDetailDTO record in Records)
+        {
+            <p>
+                Name: @record.FullName - &nbsp; @record.PhoneNumber
+            </p>
+        }
+    }
+    else{
+        <p>
+            No records found
+        </p>
+    }
+</div>
+
+@code
+{
+    [Inject] public IHttpClientFactory ClientFactory { get; set; }
+    ContactDetailDTO UserDataForm = new();
+    List<ContactDetailDTO> Records;
+    HttpClient Client;
+    bool IsSaving;
+    string ErrorMessage;
+    protected override void OnInitialized()
+    {
+        Client = ClientFactory.CreateClient();
+        Client.BaseAddress = new Uri("https://localhost:7060/");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        await GetRecords();
+
+    }
+
+    async Task OnSubmit()
+    {
+        if(!IsSaving)
+        {
+            IsSaving = true;
+            ErrorMessage = string.Empty;
+
+            try
+            {
+                await Client.PostAsJsonAsync<ContactDetailDTO>("contact-detail/add", UserDataForm);
+                UserDataForm = new();
+            }
+            catch(Exception ex)
+            {
+                ErrorMessage = "Error occured, cannot save data";
+                Console.WriteLine(ex.Message);
+            }
+            await GetRecords();
+            IsSaving = false;
+        }
+    }
+
+    async Task GetRecords()
+    {
+        try
+        {
+            Records = await Client.GetFromJsonAsync<List<ContactDetailDTO>>("contact-detail/all");
+        }
+        catch(Exception)
+        {
+            Records = new();
+        }
+    }
+}
